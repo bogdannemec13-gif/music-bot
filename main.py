@@ -1,3 +1,6 @@
+print("BOT FILE STARTED")
+print("8724847696:AAE5pgxmb8O4N_4U6ZbZTQ6GtnxL7yWhDMA", TOKEN)
+
 import requests
 import time
 import os
