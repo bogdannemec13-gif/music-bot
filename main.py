@@ -8,7 +8,7 @@ import os
 import uuid
 import subprocess
 
-TOKEN = os.getenv("8724847696:AAE5pgxmb8O4N_4U6ZbZTQ6GtnxL7yWhDMA")
+TOKEN = os.getenv("BOT_TOKEN")
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 
 offset = 0
