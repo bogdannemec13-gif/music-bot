@@ -1,68 +1,99 @@
-import asyncio
+import requests
+import time
 import os
 import uuid
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-import yt_dlp
+import subprocess
 
 TOKEN = os.getenv("8724847696:AAE5pgxmb8O4N_4U6ZbZTQ6GtnxL7yWhDMA")
+BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
-
-
-@dp.message(Command("start"))
-async def start(message: types.Message):
-    await message.answer("🎥 Пришли ссылку на видео — я верну mp3")
+offset = 0
 
 
-def download_audio(url: str) -> str:
+def get_updates():
+    global offset
+    r = requests.get(f"{BASE_URL}/getUpdates", params={"offset": offset, "timeout": 10}).json()
+    return r.get("result", [])
+
+
+def send_message(chat_id, text):
+    requests.post(f"{BASE_URL}/sendMessage", data={"chat_id": chat_id, "text": text})
+
+
+def send_audio(chat_id, file_path):
+    with open(file_path, "rb") as f:
+        requests.post(
+            f"{BASE_URL}/sendAudio",
+            data={"chat_id": chat_id},
+            files={"audio": f}
+        )
+
+
+def download_audio(url):
     file_id = str(uuid.uuid4())
     output = f"{file_id}.mp3"
 
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": file_id + ".%(ext)s",
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
-        "quiet": True,
-        "noplaylist": True
-    }
+    cmd = [
+        "yt-dlp",
+        "-x",
+        "--audio-format", "mp3",
+        "--audio-quality", "192K",
+        "-o", f"{file_id}.%(ext)s",
+        url
+    ]
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     return output
 
 
-@dp.message()
-async def handler(message: types.Message):
-    url = message.text.strip()
+def main():
+    global offset
+    print("Bot started...")
 
-    if "http" not in url:
-        await message.answer("❌ Отправь ссылку на видео")
-        return
+    while True:
+        try:
+            updates = get_updates()
 
-    await message.answer("⏬ Скачиваю...")
+            for update in updates:
+                offset = update["update_id"] + 1
 
-    try:
-        file_path = download_audio(url)
+                message = update.get("message")
+                if not message:
+                    continue
 
-        audio = types.FSInputFile(file_path)
-        await message.answer_audio(audio)
+                chat_id = message["chat"]["id"]
 
-        os.remove(file_path)
+                text = message.get("text", "")
 
-    except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+                # старт
+                if text == "/start":
+                    send_message(chat_id, "🎵 Отправь ссылку на видео — я скачаю аудио")
+                    continue
 
+                # ссылка
+                if "http" in text:
+                    send_message(chat_id, "⏬ Скачиваю аудио...")
 
-async def main():
-    await dp.start_polling(bot)
+                    try:
+                        file_path = download_audio(text)
+
+                        send_audio(chat_id, file_path)
+
+                        os.remove(file_path)
+
+                    except Exception as e:
+                        send_message(chat_id, f"❌ Ошибка: {e}")
+
+                else:
+                    send_message(chat_id, "❌ Пришли ссылку на видео")
+
+            time.sleep(1)
+
+        except Exception as e:
+            print("Error:", e)
+            time.sleep(3)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
