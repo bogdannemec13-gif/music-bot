@@ -4,8 +4,7 @@ print("TOKEN =", repr(os.getenv("BOT_TOKEN")))
 import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-
-TOKEN = os.getenv("8724847696:AAE5pgxmb8O4N_4U6ZbZTQ6GtnxL7yWhDMA")
+TOKEN = os.getenv("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Бот запущен и работает 🚀")
